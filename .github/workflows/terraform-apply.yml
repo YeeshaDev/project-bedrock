@@ -1,0 +1,132 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/**"
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.9"
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform
+        env:
+          TF_VAR_db_password_catalog: ${{ secrets.DB_PASSWORD_CATALOG }}
+          TF_VAR_db_password_orders: ${{ secrets.DB_PASSWORD_ORDERS }}
+        run: terraform apply -auto-approve
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name project-bedrock-cluster --region us-east-1
+
+      - name: Install AWS Load Balancer Controller
+        working-directory: terraform
+        run: |
+          LBC_ROLE_ARN=$(terraform output -raw lbc_role_arn)
+          helm repo add eks https://aws.github.io/eks-charts
+          helm repo update
+          helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+            --namespace kube-system \
+            --set clusterName=project-bedrock-cluster \
+            --set serviceAccount.create=true \
+            --set serviceAccount.name=aws-load-balancer-controller \
+            --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${LBC_ROLE_ARN}" \
+            --set region=us-east-1 \
+            --wait
+
+      - name: Apply Namespace and RBAC
+        run: |
+          kubectl apply -f kubernetes/namespace.yaml
+          kubectl apply -f kubernetes/rbac.yaml
+
+      - name: Create Database Secrets
+        run: |
+          CATALOG_RAW=$(aws secretsmanager get-secret-value \
+            --secret-id project-bedrock/catalog-db-credentials \
+            --query SecretString --output text)
+          CATALOG_HOST=$(echo "$CATALOG_RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['host']+':3306')")
+          CATALOG_USER=$(echo "$CATALOG_RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['username'])")
+          CATALOG_PASS=$(echo "$CATALOG_RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['password'])")
+
+          kubectl create secret generic catalog-db-secret \
+            --namespace retail-app \
+            --from-literal=endpoint="$CATALOG_HOST" \
+            --from-literal=username="$CATALOG_USER" \
+            --from-literal=password="$CATALOG_PASS" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          ORDERS_RAW=$(aws secretsmanager get-secret-value \
+            --secret-id project-bedrock/orders-db-credentials \
+            --query SecretString --output text)
+          ORDERS_HOST=$(echo "$ORDERS_RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['host']+':5432')")
+          ORDERS_USER=$(echo "$ORDERS_RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['username'])")
+          ORDERS_PASS=$(echo "$ORDERS_RAW" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['password'])")
+
+          kubectl create secret generic orders-db-secret \
+            --namespace retail-app \
+            --from-literal=endpoint="$ORDERS_HOST" \
+            --from-literal=username="$ORDERS_USER" \
+            --from-literal=password="$ORDERS_PASS" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy Retail Store App
+        run: kubectl apply -k kubernetes/retail-app/ --timeout=600s
+
+      - name: Annotate Carts ServiceAccount for IRSA
+        working-directory: terraform
+        run: |
+          CART_ROLE_ARN=$(terraform output -raw cart_irsa_role_arn)
+          kubectl annotate serviceaccount carts \
+            --namespace retail-app \
+            "eks.amazonaws.com/role-arn=${CART_ROLE_ARN}" \
+            --overwrite
+          kubectl rollout restart deployment/carts -n retail-app
+
+      - name: Apply Ingress
+        run: kubectl apply -f kubernetes/ingress.yaml
+
+      - name: Wait for App
+        run: |
+          kubectl rollout status deployment/ui -n retail-app --timeout=300s || true
+          kubectl get ingress retail-store-ingress -n retail-app
+
+      - name: Generate grading.json
+        working-directory: terraform
+        run: terraform output -json > ../grading.json
+
+      - name: Commit grading.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add grading.json
+          git diff --staged --quiet || git commit -m "chore: update grading.json [skip ci]"
+          git push origin HEAD:main

@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: retail-app
+
+resources:
+  - https://github.com/aws-containers/retail-store-sample-app/releases/latest/download/kubernetes.yaml
+
+patches:
+  - path: patches/catalog-db.yaml
+  - path: patches/orders-db.yaml
+  - path: patches/cart-dynamodb.yaml

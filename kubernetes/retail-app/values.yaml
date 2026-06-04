@@ -1,0 +1,4 @@
+# Deployment is managed via Kustomize.
+# See kustomization.yaml and patches/ in this directory.
+# The official manifest is pulled from the aws-containers/retail-store-sample-app release.
+

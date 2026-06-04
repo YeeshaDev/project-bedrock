@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: carts
+spec:
+  template:
+    spec:
+      containers:
+        - name: carts
+          env:
+            - name: RETAIL_CART_PERSISTENCE_PROVIDER
+              value: dynamodb
+            - name: RETAIL_CART_PERSISTENCE_DYNAMODB_TABLE_NAME
+              value: project-bedrock-carts
+            - name: RETAIL_CART_PERSISTENCE_DYNAMODB_CREATE_TABLE
+              value: "false"
