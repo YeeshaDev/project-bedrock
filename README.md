@@ -1,4 +1,4 @@
-# Project Bedrock — InnovateMart EKS Deployment
+# Project Bedrock - InnovateMart EKS Deployment
 
 Production-grade microservices infrastructure on AWS EKS for InnovateMart Inc.
 
@@ -208,4 +208,4 @@ aws rds stop-db-instance --db-instance-identifier project-bedrock-orders
 
 ## Tags
 
-All resources are tagged: `Project: karatu-2025-capstone`
+All resources are tagged: `Project: karatu-2026-capstone`
