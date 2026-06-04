@@ -31,5 +31,5 @@ variable "db_password_orders" {
 variable "github_repo" {
   type        = string
   description = "GitHub repo in owner/name format"
-  default     = "YeeshaDev/capstone-project-bedrock"
+  default     = "YeeshaDev/project-bedrock"
 }
