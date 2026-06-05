@@ -1,0 +1,72 @@
+{
+  "assets_bucket_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "bedrock-assets-alt-soe-025-4808"
+  },
+  "cart_irsa_role_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:iam::294790490901:role/project-bedrock-cluster-cart-irsa-role"
+  },
+  "catalog_rds_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "project-bedrock-catalog.cspamu2cmkpd.us-east-1.rds.amazonaws.com"
+  },
+  "cluster_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://B2250BAD974A4517CABC228329591E2D.gr7.us-east-1.eks.amazonaws.com"
+  },
+  "cluster_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "project-bedrock-cluster"
+  },
+  "dev_user_access_key_id": {
+    "sensitive": true,
+    "type": "string",
+    "value": "AKIAUJIXB5MK5KKVSM74"
+  },
+  "dev_user_password": {
+    "sensitive": true,
+    "type": "string",
+    "value": "%F|1ENX^KMM45vWzYVf="
+  },
+  "dev_user_secret_key": {
+    "sensitive": true,
+    "type": "string",
+    "value": "avG24OeOrZi+qVQQ36XdKDVaeUBqTH/ncYfSUV2i"
+  },
+  "dynamodb_table_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "project-bedrock-carts"
+  },
+  "github_actions_role_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:iam::294790490901:role/project-bedrock-cluster-github-actions-role"
+  },
+  "lbc_role_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:iam::294790490901:role/project-bedrock-cluster-lbc-role"
+  },
+  "orders_rds_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "project-bedrock-orders.cspamu2cmkpd.us-east-1.rds.amazonaws.com"
+  },
+  "region": {
+    "sensitive": false,
+    "type": "string",
+    "value": "us-east-1"
+  },
+  "vpc_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "vpc-0db0738f2a3121139"
+  }
+}
