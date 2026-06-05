@@ -10,3 +10,4 @@ patches:
   - path: patches/catalog-db.yaml
   - path: patches/orders-db.yaml
   - path: patches/cart-dynamodb.yaml
+  - path: patches/carts-sa.yaml

@@ -87,7 +87,7 @@ resource "aws_eks_node_group" "main" {
   node_group_name = "${var.cluster_name}-nodes"
   node_role_arn   = aws_iam_role.node_group.arn
   subnet_ids      = var.private_subnet_ids
-  instance_types  = ["t3.medium"]
+  instance_types  = ["m7i-flex.large", "c7i-flex.large"]
 
   scaling_config {
     desired_size = 2
@@ -108,7 +108,7 @@ resource "aws_eks_node_group" "main" {
 }
 
 data "http" "lbc_policy" {
-  url = "https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json"
+  url = "https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.12.0/docs/install/iam_policy.json"
 }
 
 resource "aws_iam_policy" "lbc" {

@@ -14,3 +14,11 @@ spec:
               value: project-bedrock-carts
             - name: RETAIL_CART_PERSISTENCE_DYNAMODB_CREATE_TABLE
               value: "false"
+            # Empty string disables the in-cluster local endpoint override; SDK uses AWS_REGION env var
+            - name: RETAIL_CART_PERSISTENCE_DYNAMODB_ENDPOINT
+              value: ""
+            # Clear fake credentials from ConfigMap so IRSA (via SA annotation) takes over
+            - name: AWS_ACCESS_KEY_ID
+              value: ""
+            - name: AWS_SECRET_ACCESS_KEY
+              value: ""
