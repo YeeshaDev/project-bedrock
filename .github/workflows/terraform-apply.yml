@@ -61,7 +61,8 @@ jobs:
             --set serviceAccount.name=aws-load-balancer-controller \
             --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${LBC_ROLE_ARN}" \
             --set region=us-east-1 \
-            --wait
+            --wait \
+            --timeout 10m
 
       - name: Apply Namespace and RBAC
         run: |
