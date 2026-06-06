@@ -131,6 +131,8 @@ kubectl get ingress -n retail-app retail-store-ingress
 
 The `ADDRESS` column is the public URL for the Retail Store.
 
+**Live URL**: `http://k8s-retailap-retailst-17d19cf248-896889815.us-east-1.elb.amazonaws.com`
+
 ---
 
 ## Step 6 — Generate Grading Output
