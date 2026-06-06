@@ -208,4 +208,4 @@ aws rds stop-db-instance --db-instance-identifier project-bedrock-orders
 
 ## Tags
 
-All resources are tagged: `Project: karatu-2026-capstone`
+All resources are tagged: `Project: karatu-2025-capstone`
