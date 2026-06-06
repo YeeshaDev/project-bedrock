@@ -5,8 +5,9 @@ variable "region" {
 }
 
 variable "cluster_name" {
-  type    = string
-  default = "project-bedrock-cluster"
+  description = "Name of the EKS cluster"
+  type        = string
+  default     = "project-bedrock-cluster"
 }
 
 variable "vpc_name" {

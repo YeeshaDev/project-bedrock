@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "terraform/**"
+      - ".github/workflows/**"
+      - "kubernetes/**"
 
 permissions:
   id-token: write
