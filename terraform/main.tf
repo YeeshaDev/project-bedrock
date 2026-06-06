@@ -57,3 +57,22 @@ resource "aws_eks_access_entry" "dev_view" {
 
   depends_on = [module.eks, module.iam]
 }
+
+resource "aws_eks_access_entry" "github_actions" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = module.iam.github_actions_role_arn
+
+  depends_on = [module.eks, module.iam]
+}
+
+resource "aws_eks_access_policy_association" "github_actions_admin" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = module.iam.github_actions_role_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.github_actions]
+}
