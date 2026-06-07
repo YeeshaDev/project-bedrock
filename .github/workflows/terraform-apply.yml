@@ -286,7 +286,13 @@ jobs:
 
       - name: Generate grading.json
         working-directory: terraform
-        run: terraform output -json > ../grading.json
+        run: |
+          terraform output -json | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+filtered = {k: v for k, v in data.items() if not v.get('sensitive', False)}
+print(json.dumps(filtered, indent=2))
+" > ../grading.json
 
       - name: Commit grading.json
         run: |

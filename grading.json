@@ -24,21 +24,6 @@
     "type": "string",
     "value": "project-bedrock-cluster"
   },
-  "dev_user_access_key_id": {
-    "sensitive": true,
-    "type": "string",
-    "value": "AKIAUJIXB5MK5KKVSM74"
-  },
-  "dev_user_password": {
-    "sensitive": true,
-    "type": "string",
-    "value": "%F|1ENX^KMM45vWzYVf="
-  },
-  "dev_user_secret_key": {
-    "sensitive": true,
-    "type": "string",
-    "value": "avG24OeOrZi+qVQQ36XdKDVaeUBqTH/ncYfSUV2i"
-  },
   "dynamodb_table_name": {
     "sensitive": false,
     "type": "string",
