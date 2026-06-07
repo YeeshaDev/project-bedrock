@@ -202,6 +202,48 @@ jobs:
           export NIP_IO_DOMAIN="${NIP_IP}.nip.io"
           echo "nip.io domain: https://${NIP_IO_DOMAIN}"
           envsubst < kubernetes/ingress-tls.yaml | kubectl apply -f -
+          echo "NIP_IO_DOMAIN=${NIP_IO_DOMAIN}" >> $GITHUB_ENV
+
+      - name: Configure CoreDNS split DNS
+        run: |
+          NGINX_CLUSTER_IP=$(kubectl get svc ingress-nginx-controller -n ingress-nginx \
+            -o jsonpath='{.spec.clusterIP}')
+          echo "NGINX ClusterIP: $NGINX_CLUSTER_IP  nip.io domain: $NIP_IO_DOMAIN"
+
+          kubectl get configmap coredns -n kube-system \
+            -o jsonpath='{.data.Corefile}' > /tmp/corefile.txt
+
+          python3 - <<EOF
+import re
+content = open('/tmp/corefile.txt').read()
+content = re.sub(r'\s*hosts \{[^}]*\.nip\.io[^}]*\}\n', '\n', content)
+hosts = '    hosts {\n        ${NGINX_CLUSTER_IP} ${NIP_IO_DOMAIN}\n        fallthrough\n    }\n'
+content = content.replace('    forward ', hosts + '    forward ')
+open('/tmp/corefile_new.txt', 'w').write(content)
+EOF
+
+          kubectl create configmap coredns \
+            --from-file=Corefile=/tmp/corefile_new.txt \
+            -n kube-system --dry-run=client -o yaml | kubectl apply -f -
+          kubectl rollout restart deployment/coredns -n kube-system
+          kubectl rollout status deployment/coredns -n kube-system --timeout=90s
+
+      - name: Issue TLS Certificate
+        run: |
+          kubectl delete certificate retail-store-tls -n retail-app 2>/dev/null || true
+          kubectl delete orders,challenges -n retail-app --all 2>/dev/null || true
+          echo "Waiting for certificate to be issued..."
+          for i in $(seq 1 24); do
+            READY=$(kubectl get certificate retail-store-tls -n retail-app \
+              -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
+            if [ "$READY" = "True" ]; then
+              echo "Certificate issued successfully"
+              break
+            fi
+            echo "  attempt $i/24 — retrying in 15s"
+            sleep 15
+          done
+          kubectl get certificate retail-store-tls -n retail-app
 
       - name: Wait for App
         run: |
