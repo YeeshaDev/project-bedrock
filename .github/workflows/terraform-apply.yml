@@ -40,6 +40,14 @@ jobs:
         working-directory: terraform
         run: terraform init
 
+      - name: Import existing SG rules into Terraform state
+        working-directory: terraform
+        run: |
+          terraform state show module.eks.aws_security_group_rule.cluster_http_ingress > /dev/null 2>&1 || \
+            terraform import module.eks.aws_security_group_rule.cluster_http_ingress sgr-09308566c32983e66
+          terraform state show module.eks.aws_security_group_rule.cluster_https_ingress > /dev/null 2>&1 || \
+            terraform import module.eks.aws_security_group_rule.cluster_https_ingress sgr-01301aaed71ff47b0
+
       - name: Terraform Apply
         working-directory: terraform
         env:
