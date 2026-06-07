@@ -42,6 +42,9 @@ jobs:
 
       - name: Import existing SG rules into Terraform state
         working-directory: terraform
+        env:
+          TF_VAR_db_password_catalog: ${{ secrets.DB_PASSWORD_CATALOG }}
+          TF_VAR_db_password_orders: ${{ secrets.DB_PASSWORD_ORDERS }}
         run: |
           CLUSTER_SG=$(aws eks describe-cluster \
             --name project-bedrock-cluster \
