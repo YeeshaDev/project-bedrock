@@ -166,10 +166,6 @@ jobs:
 
       - name: Install NGINX Ingress Controller
         run: |
-          # Uninstall any previous release so the old internal NLB is deleted cleanly
-          helm uninstall ingress-nginx -n ingress-nginx 2>/dev/null || true
-          sleep 30
-
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm repo update
           helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
@@ -257,19 +253,27 @@ jobs:
 
       - name: Issue TLS Certificate
         run: |
-          kubectl delete certificate retail-store-tls -n retail-app 2>/dev/null || true
-          kubectl delete orders,challenges -n retail-app --all 2>/dev/null || true
-          echo "Waiting for certificate to be issued..."
-          for i in $(seq 1 24); do
-            READY=$(kubectl get certificate retail-store-tls -n retail-app \
-              -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
-            if [ "$READY" = "True" ]; then
-              echo "Certificate issued successfully"
-              break
-            fi
-            echo "  attempt $i/24 — retrying in 15s"
-            sleep 15
-          done
+          READY=$(kubectl get certificate retail-store-tls -n retail-app \
+            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
+          if [ "$READY" = "True" ]; then
+            echo "Certificate already Ready — skipping reissuance"
+          else
+            echo "Certificate not ready — triggering reissuance"
+            kubectl delete certificate retail-store-tls -n retail-app 2>/dev/null || true
+            kubectl delete orders.acme.cert-manager.io,challenges.acme.cert-manager.io \
+              -n retail-app --all 2>/dev/null || true
+            echo "Waiting for certificate to be issued..."
+            for i in $(seq 1 24); do
+              READY=$(kubectl get certificate retail-store-tls -n retail-app \
+                -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)
+              if [ "$READY" = "True" ]; then
+                echo "Certificate issued successfully"
+                break
+              fi
+              echo "  attempt $i/24 — retrying in 15s"
+              sleep 15
+            done
+          fi
           kubectl get certificate retail-store-tls -n retail-app
 
       - name: Wait for App
