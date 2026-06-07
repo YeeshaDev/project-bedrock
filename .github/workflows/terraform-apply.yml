@@ -43,10 +43,39 @@ jobs:
       - name: Import existing SG rules into Terraform state
         working-directory: terraform
         run: |
-          terraform state show module.eks.aws_security_group_rule.cluster_http_ingress > /dev/null 2>&1 || \
-            terraform import module.eks.aws_security_group_rule.cluster_http_ingress sgr-09308566c32983e66
-          terraform state show module.eks.aws_security_group_rule.cluster_https_ingress > /dev/null 2>&1 || \
-            terraform import module.eks.aws_security_group_rule.cluster_https_ingress sgr-01301aaed71ff47b0
+          CLUSTER_SG=$(aws eks describe-cluster \
+            --name project-bedrock-cluster \
+            --region us-east-1 \
+            --query 'cluster.resourcesVpcConfig.clusterSecurityGroupId' \
+            --output text 2>/dev/null || echo "")
+
+          if [ -z "$CLUSTER_SG" ] || [ "$CLUSTER_SG" = "None" ]; then
+            echo "Cluster not found — skipping SG rule import"
+            exit 0
+          fi
+          echo "Cluster SG: $CLUSTER_SG"
+
+          import_if_needed() {
+            local TF_ADDR="$1"
+            local PORT="$2"
+            if terraform state show "$TF_ADDR" > /dev/null 2>&1; then
+              echo "$TF_ADDR already in state, skipping"
+              return
+            fi
+            RULE_ID=$(aws ec2 describe-security-group-rules \
+              --filters "Name=group-id,Values=$CLUSTER_SG" \
+              --query "SecurityGroupRules[?FromPort==\`$PORT\` && ToPort==\`$PORT\` && IsEgress==\`false\` && CidrIpv4==\`0.0.0.0/0\`].SecurityGroupRuleId" \
+              --output text 2>/dev/null | awk '{print $1}')
+            if [ -z "$RULE_ID" ] || [ "$RULE_ID" = "None" ]; then
+              echo "No existing rule for port $PORT — terraform apply will create it"
+              return
+            fi
+            echo "Importing $TF_ADDR → $RULE_ID"
+            terraform import "$TF_ADDR" "$RULE_ID"
+          }
+
+          import_if_needed "module.eks.aws_security_group_rule.cluster_http_ingress" 80
+          import_if_needed "module.eks.aws_security_group_rule.cluster_https_ingress" 443
 
       - name: Terraform Apply
         working-directory: terraform
