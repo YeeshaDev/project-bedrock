@@ -65,16 +65,10 @@ jobs:
               echo "$TF_ADDR already in state, skipping"
               return
             fi
-            RULE_ID=$(aws ec2 describe-security-group-rules \
-              --filters "Name=group-id,Values=$CLUSTER_SG" \
-              --query "SecurityGroupRules[?FromPort==\`$PORT\` && ToPort==\`$PORT\` && IsEgress==\`false\` && CidrIpv4==\`0.0.0.0/0\`].SecurityGroupRuleId" \
-              --output text 2>/dev/null | awk '{print $1}')
-            if [ -z "$RULE_ID" ] || [ "$RULE_ID" = "None" ]; then
-              echo "No existing rule for port $PORT — terraform apply will create it"
-              return
-            fi
-            echo "Importing $TF_ADDR → $RULE_ID"
-            terraform import "$TF_ADDR" "$RULE_ID"
+            local IMPORT_ID="${CLUSTER_SG}_ingress_tcp_${PORT}_${PORT}_0.0.0.0/0"
+            echo "Importing $TF_ADDR → $IMPORT_ID"
+            terraform import "$TF_ADDR" "$IMPORT_ID" || \
+              echo "Rule not found in AWS — terraform apply will create it"
           }
 
           import_if_needed "module.eks.aws_security_group_rule.cluster_http_ingress" 80
