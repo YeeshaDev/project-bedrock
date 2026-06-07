@@ -213,14 +213,7 @@ jobs:
           kubectl get configmap coredns -n kube-system \
             -o jsonpath='{.data.Corefile}' > /tmp/corefile.txt
 
-          python3 - <<EOF
-import re
-content = open('/tmp/corefile.txt').read()
-content = re.sub(r'\s*hosts \{[^}]*\.nip\.io[^}]*\}\n', '\n', content)
-hosts = '    hosts {\n        ${NGINX_CLUSTER_IP} ${NIP_IO_DOMAIN}\n        fallthrough\n    }\n'
-content = content.replace('    forward ', hosts + '    forward ')
-open('/tmp/corefile_new.txt', 'w').write(content)
-EOF
+          python3 scripts/patch_coredns.py "$NGINX_CLUSTER_IP" "$NIP_IO_DOMAIN"
 
           kubectl create configmap coredns \
             --from-file=Corefile=/tmp/corefile_new.txt \
