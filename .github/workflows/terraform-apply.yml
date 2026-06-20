@@ -40,39 +40,43 @@ jobs:
         working-directory: terraform
         run: terraform init
 
-      - name: Import existing SG rules into Terraform state
+      - name: Import existing resources into Terraform state
         working-directory: terraform
         env:
           TF_VAR_db_password_catalog: ${{ secrets.DB_PASSWORD_CATALOG }}
           TF_VAR_db_password_orders: ${{ secrets.DB_PASSWORD_ORDERS }}
         run: |
+          import_if_needed() {
+            local TF_ADDR="$1"
+            local IMPORT_ID="$2"
+            if terraform state show "$TF_ADDR" > /dev/null 2>&1; then
+              echo "$TF_ADDR already in state, skipping"
+              return
+            fi
+            echo "Importing $TF_ADDR → $IMPORT_ID"
+            terraform import "$TF_ADDR" "$IMPORT_ID" || \
+              echo "Not found in AWS — terraform apply will create it"
+          }
+
           CLUSTER_SG=$(aws eks describe-cluster \
             --name project-bedrock-cluster \
             --region us-east-1 \
             --query 'cluster.resourcesVpcConfig.clusterSecurityGroupId' \
             --output text 2>/dev/null || echo "")
 
-          if [ -z "$CLUSTER_SG" ] || [ "$CLUSTER_SG" = "None" ]; then
-            echo "Cluster not found — skipping SG rule import"
-            exit 0
+          if [ -n "$CLUSTER_SG" ] && [ "$CLUSTER_SG" != "None" ]; then
+            echo "Cluster SG: $CLUSTER_SG"
+            import_if_needed "module.eks.aws_security_group_rule.cluster_http_ingress" \
+              "${CLUSTER_SG}_ingress_tcp_80_80_0.0.0.0/0"
+            import_if_needed "module.eks.aws_security_group_rule.cluster_https_ingress" \
+              "${CLUSTER_SG}_ingress_tcp_443_443_0.0.0.0/0"
+          else
+            echo "Cluster not yet created — skipping SG rule import"
           fi
-          echo "Cluster SG: $CLUSTER_SG"
 
-          import_if_needed() {
-            local TF_ADDR="$1"
-            local PORT="$2"
-            if terraform state show "$TF_ADDR" > /dev/null 2>&1; then
-              echo "$TF_ADDR already in state, skipping"
-              return
-            fi
-            local IMPORT_ID="${CLUSTER_SG}_ingress_tcp_${PORT}_${PORT}_0.0.0.0/0"
-            echo "Importing $TF_ADDR → $IMPORT_ID"
-            terraform import "$TF_ADDR" "$IMPORT_ID" || \
-              echo "Rule not found in AWS — terraform apply will create it"
-          }
-
-          import_if_needed "module.eks.aws_security_group_rule.cluster_http_ingress" 80
-          import_if_needed "module.eks.aws_security_group_rule.cluster_https_ingress" 443
+          import_if_needed \
+            "module.cloudwatch.aws_cloudwatch_log_group.eks_cluster" \
+            "/aws/eks/project-bedrock-cluster/cluster"
 
       - name: Terraform Apply
         working-directory: terraform
