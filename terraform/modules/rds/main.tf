@@ -44,6 +44,7 @@ resource "aws_db_instance" "catalog" {
   engine_version         = "8.0"
   instance_class         = "db.t3.micro"
   allocated_storage      = 20
+  max_allocated_storage  = 50
   db_name                = "catalog"
   username               = "catalog_admin"
   password               = var.catalog_db_password
@@ -65,6 +66,7 @@ resource "aws_db_instance" "orders" {
   engine_version         = "16.3"
   instance_class         = "db.t3.micro"
   allocated_storage      = 20
+  max_allocated_storage  = 50
   db_name                = "orders"
   username               = "orders_admin"
   password               = var.orders_db_password
