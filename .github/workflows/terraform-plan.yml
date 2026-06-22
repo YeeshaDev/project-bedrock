@@ -34,12 +34,16 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
+        id: init
         working-directory: terraform
         run: terraform init
+        continue-on-error: true
 
       - name: Terraform Validate
+        id: validate
         working-directory: terraform
-        run: terraform validate
+        run: terraform validate -no-color
+        continue-on-error: true
 
       - name: Terraform Plan
         id: plan
@@ -49,19 +53,73 @@ jobs:
           TF_VAR_db_password_orders: ${{ secrets.DB_PASSWORD_ORDERS }}
         run: |
           terraform plan -no-color -out=tfplan 2>&1 | tee plan_output.txt
-          echo "PLAN_OUTPUT<<EOF" >> $GITHUB_ENV
-          cat plan_output.txt >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          echo "PLAN_EXIT_CODE=${PIPESTATUS[0]}" >> $GITHUB_ENV
+        continue-on-error: true
 
       - name: Post Plan as PR Comment
         uses: actions/github-script@v7
+        env:
+          PLAN_OUTPUT_FILE: terraform/plan_output.txt
         with:
           script: |
-            const output = process.env.PLAN_OUTPUT;
-            const body = `## Terraform Plan\n\`\`\`hcl\n${output.substring(0, 60000)}\n\`\`\``;
-            github.rest.issues.createComment({
+            const fs = require('fs');
+            const actor = context.actor;
+            const eventName = context.eventName;
+
+            const initResult   = '${{ steps.init.outcome }}' === 'success' ? '✅ success' : '❌ failure';
+            const validateResult = '${{ steps.validate.outcome }}' === 'success' ? '✅ success' : '❌ failure';
+            const planResult   = '${{ steps.plan.outcome }}' === 'success' ? '✅ success' : '❌ failure';
+
+            let planOutput = '';
+            try {
+              planOutput = fs.readFileSync(process.env.PLAN_OUTPUT_FILE, 'utf8');
+            } catch(e) {
+              planOutput = 'Plan output not available.';
+            }
+
+            const MAX = 60000;
+            if (planOutput.length > MAX) {
+              planOutput = planOutput.substring(0, MAX) + '\n\n... (truncated)';
+            }
+
+            const body = [
+              `## Terraform Plan Result`,
+              `**Init:** ${initResult} | **Validate:** ${validateResult} | **Plan:** ${planResult}`,
+              ``,
+              `<details>`,
+              `<summary>Show Plan</summary>`,
+              ``,
+              `\`\`\`hcl`,
+              planOutput,
+              `\`\`\``,
+              `</details>`,
+              ``,
+              `*Triggered by @${actor} via \`${eventName}\`*`,
+            ].join('\n');
+
+            // Delete previous plan comments to keep PR clean
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            for (const c of comments.data) {
+              if (c.user.login === 'github-actions[bot]' && c.body.includes('Terraform Plan Result')) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: c.id,
+                });
+              }
+            }
+
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: body
+              body: body,
             });
+
+      - name: Fail if plan failed
+        if: steps.init.outcome == 'failure' || steps.validate.outcome == 'failure' || steps.plan.outcome == 'failure'
+        run: exit 1
